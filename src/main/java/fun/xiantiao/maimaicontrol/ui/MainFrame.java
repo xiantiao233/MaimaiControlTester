@@ -3,9 +3,7 @@ package fun.xiantiao.maimaicontrol.ui;
 import javax.swing.*;
 import java.awt.*;
 
-public class main extends JFrame {
-
-    private JButton mSerialPortOperate = new JButton("打开串口");
+public class MainFrame extends JFrame {
 
     // 程序界面宽度
     public final int WIDTH = 530;
@@ -13,8 +11,13 @@ public class main extends JFrame {
     public final int HEIGHT = 390;
 
     // 数据显示区
-    private JTextArea mDataView = new JTextArea();
-    private JScrollPane mScrollDataView = new JScrollPane(mDataView);
+    private final JTextArea mDataView = new JTextArea();
+    private final JScrollPane mScrollDataView = new JScrollPane(mDataView);
+
+    public MainFrame() {
+        initView();
+        initComponents();
+    }
 
     /**
      * 初始化窗口

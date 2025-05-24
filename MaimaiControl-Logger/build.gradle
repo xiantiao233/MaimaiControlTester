@@ -1,0 +1,11 @@
+plugins {
+    id 'java'
+}
+
+dependencies {
+    implementation 'org.apache.logging.log4j:log4j-core:2.22.1'
+    annotationProcessor 'org.apache.logging.log4j:log4j-core:2.22.1'
+    compileOnly 'org.apache.logging.log4j:log4j-api:2.22.1'
+
+    compileOnly 'org.slf4j:slf4j-api:2.0.7'
+}

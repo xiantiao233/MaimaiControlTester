@@ -66,18 +66,10 @@ public class MaimaiTouchDataParser {
             {3, 12}
     };
 
-    public static List<String> parseMprContacts(byte[] data) {
+    public static List<String> parseMprContacts(long touchBits) {
         List<String> contacts = new ArrayList<>();
 
-        // 1. 验证数据包格式
-        if (!validatePacket(data)) {
-            throw new IllegalArgumentException("Invalid data packet, data: " + new String(Hex.encodeHex(data)));
-        }
-
-        // 2. 解码触摸数据
-        long touchBits = decodeTouchBits(data);
-
-        // 3. 遍历所有触摸点
+        // 遍历所有触摸点
         for (int touchPoint = 0; touchPoint < 34; touchPoint++) {
             // 检查该触摸点是否激活（bit从高位开始对应触摸点0）
             boolean isActive = ((touchBits >> (33 - touchPoint)) & 0x1) == 1;
@@ -93,6 +85,16 @@ public class MaimaiTouchDataParser {
         return contacts;
     }
 
+    public static long parseTouchBits(byte[] data) {
+        if (!validatePacket(data)) {
+            throw new IllegalArgumentException("Invalid data packet, data: " + new String(Hex.encodeHex(data)));
+        }
+
+        return decodeTouchBits(data);
+    }
+
+
+
     private static boolean validatePacket(byte[] data) {
         return data.length == 9 &&
                 data[0] == '(' &&
@@ -101,30 +103,9 @@ public class MaimaiTouchDataParser {
 
     private static long decodeTouchBits(byte[] data) {
         long touchBits = 0;
-        // 从data[1]到data[7]重组数据（每个字节5位）
         for (int i = 1; i <= 7; i++) {
             touchBits = (touchBits << 5) | (data[i] & 0x1F);
         }
         return touchBits;
-    }
-
-    // 测试用例
-    public static void main(String[] args) {
-        // 示例数据：激活触摸点0(M1-3)、2(M1-1)、33(M3-15)
-        byte[] testData = {
-                '(',
-                0b00000001, // 触摸点0-4 (00001)
-                0b00000000, // 触摸点5-9
-                0b00000000, // 触摸点10-14
-                0b00000000, // 触摸点15-19
-                0b00000000, // 触摸点20-24
-                0b00000000, // 触摸点25-29
-                0b00001000, // 触摸点30-33 (最高位1000)
-                ')'
-        };
-
-        List<String> activeContacts = parseMprContacts(testData);
-        System.out.println("Active Contacts: " + activeContacts);
-        // 输出: [M1-3, M3-15]
     }
 }

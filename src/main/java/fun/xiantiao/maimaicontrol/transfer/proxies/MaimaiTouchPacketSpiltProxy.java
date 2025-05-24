@@ -2,9 +2,16 @@ package fun.xiantiao.maimaicontrol.transfer.proxies;
 
 import fun.xiantiao.maimaicontrol.transfer.basic.Transfer;
 import fun.xiantiao.maimaicontrol.transfer.basic.TransferProxy;
+import org.apache.commons.codec.binary.Hex;
 
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 
+/**
+ * 由于Maimai的触摸信息数据包可能一次性发送多个
+ * 此类用于对触摸信息数据包进行切片
+ */
 public class MaimaiTouchPacketSpiltProxy extends TransferProxy<byte[], byte[]> {
 
     public MaimaiTouchPacketSpiltProxy(Transfer<byte[]> transfer) {
@@ -23,25 +30,33 @@ public class MaimaiTouchPacketSpiltProxy extends TransferProxy<byte[], byte[]> {
 
     @Override
     protected void onReceive(byte[] data) {
-        for (byte[] bytes : splitToByteArray2D(data, 9)) {
+        for (byte[] bytes : splitPacket(data)) {
             super.onReceive(bytes);
         }
 
     }
 
-    public static byte[][] splitToByteArray2D(byte[] source, int chunkSize) {
-        int numOfChunks = (source.length + chunkSize - 1) / chunkSize;
-        byte[][] result = new byte[numOfChunks][];
+    public static List<byte[]> splitPacket(byte[] source) {
+        List<byte[]> packets = new ArrayList<>();
 
-        for (int i = 0; i < numOfChunks; i++) {
-            int start = i * chunkSize;
-            int end = Math.min(source.length, start + chunkSize);
-            result[i] = Arrays.copyOfRange(source, start, end);
+        if (source.length < 9) {
+            throw new IllegalArgumentException("Impossible packet length, data: " + new String(Hex.encodeHex(source)));
         }
 
-        return result;
-    }
+        for (int i = 0, j; i < source.length; i += j) {
+            if (source[i] == '[' && source[i + 9] == ']') {
+                j = 10;
+            } else if (source[i] == '(' && source[i + 8] == ')') {
+                j = 9;
+            } else {
+                throw new IllegalArgumentException("Invalid data packet, data: " + new String(Hex.encodeHex(source)));
+            }
+            packets.add(Arrays.copyOfRange(source, i, i + j));
 
+        }
+
+        return packets;
+    }
 
 }
 
