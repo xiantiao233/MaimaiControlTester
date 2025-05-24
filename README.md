@@ -1,0 +1,2 @@
+# MaimaiControlTester
+八键音游控制器测试软件
