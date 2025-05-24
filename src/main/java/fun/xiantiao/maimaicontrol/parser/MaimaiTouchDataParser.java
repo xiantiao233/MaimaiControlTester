@@ -1,5 +1,7 @@
 package fun.xiantiao.maimaicontrol.parser;
 
+import fun.xiantiao.maimaicontrol.utils.ByteBufHexDump;
+import io.netty.buffer.ByteBuf;
 import org.apache.commons.codec.binary.Hex;
 
 import java.util.ArrayList;
@@ -85,9 +87,9 @@ public class MaimaiTouchDataParser {
         return contacts;
     }
 
-    public static long parseTouchBits(byte[] data) {
+    public static long parseTouchBits(ByteBuf data) {
         if (!validatePacket(data)) {
-            throw new IllegalArgumentException("Invalid data packet, data: " + new String(Hex.encodeHex(data)));
+            throw new IllegalArgumentException("Invalid data packet, data: " + ByteBufHexDump.copyAndToHex(data));
         }
 
         return decodeTouchBits(data);
@@ -95,17 +97,29 @@ public class MaimaiTouchDataParser {
 
 
 
-    private static boolean validatePacket(byte[] data) {
-        return data.length == 9 &&
-                data[0] == '(' &&
-                data[8] == ')';
+    public static boolean validatePacket(ByteBuf buf) {
+        int readerIndex = buf.readerIndex();
+
+        if (buf.readableBytes() < 9) {
+            return false;
+        }
+
+        byte start = buf.getByte(readerIndex);
+        byte end   = buf.getByte(readerIndex + 8);
+
+        return start == '(' && end == ')';
     }
 
-    private static long decodeTouchBits(byte[] data) {
+    public static long decodeTouchBits(ByteBuf buf) {
+
+        buf.readByte();
         long touchBits = 0;
-        for (int i = 1; i <= 7; i++) {
-            touchBits = (touchBits << 5) | (data[i] & 0x1F);
+
+        for (int i = 0; i < 7; i++) {
+            byte b = buf.readByte();
+            touchBits = (touchBits << 5) | (b & 0x1F);
         }
+
         return touchBits;
     }
 }

@@ -3,16 +3,25 @@ package fun.xiantiao.maimaicontrol;
 import com.fazecast.jSerialComm.SerialPort;
 import fun.xiantiao.maimaicontrol.command.CommandService;
 import fun.xiantiao.maimaicontrol.logger.Log4j2LoggerAdapter;
+import fun.xiantiao.maimaicontrol.netty.SerialPortChannel;
+import fun.xiantiao.maimaicontrol.netty.SerialPortChannelFactory;
 import fun.xiantiao.maimaicontrol.parser.MaimaiTouchDataParser;
-import fun.xiantiao.maimaicontrol.parser.MprOriginalDataParser;
 import fun.xiantiao.maimaicontrol.shutdown.ShutdownManager;
-import fun.xiantiao.maimaicontrol.transfer.basic.Transfer;
-import fun.xiantiao.maimaicontrol.transfer.proxies.MaimaiTouchPacketSpiltProxy;
 import fun.xiantiao.maimaicontrol.utils.PropertyUtil;
+import io.netty.bootstrap.Bootstrap;
+import io.netty.buffer.ByteBuf;
+import io.netty.buffer.Unpooled;
+import io.netty.channel.Channel;
+import io.netty.channel.ChannelHandlerContext;
+import io.netty.channel.ChannelInboundHandlerAdapter;
+import io.netty.channel.ChannelInitializer;
+import io.netty.channel.DefaultEventLoopGroup;
+import io.netty.channel.EventLoopGroup;
+import io.netty.channel.SimpleChannelInboundHandler;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import java.nio.charset.StandardCharsets;
+import java.net.SocketAddress;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
@@ -25,10 +34,10 @@ public class MaimaiTouchController {
     private static final Logger logger = LogManager.getLogger("MaimaiControl");
 
     private static SerialPort serialPort;
-    private static Transfer<byte[]> serialPortTransfer;
+    private static Channel channel;
     private static CommandService commandService;
 
-    public static void main(String[] args) {
+    public static void main(String[] args) throws InterruptedException {
         System.setProperty("jSerialComm.library.randomizeNativeName", "true");
         commandService = new CommandService(new Log4j2LoggerAdapter(logger));
         commandService.start();
@@ -38,40 +47,38 @@ public class MaimaiTouchController {
 
         logger.info("Serial port connected.");
 
-        serialPortTransfer = new MaimaiTouchPacketSpiltProxy(new SerialPortTransfer(serialPort));
-        serialPortTransfer.send("{00A0}".getBytes(StandardCharsets.UTF_8));
+        EventLoopGroup group = new DefaultEventLoopGroup();
 
-        serialPortTransfer.addReceiver((data) -> {
-            if (data[0] == '[') {
-                MprOriginalDataParser.ParsedResult result = MprOriginalDataParser.parse(data);
-                List<Integer> triggeredPads0 = result.triggeredPads.get(0);
-                List<Integer> triggeredPads1 = result.triggeredPads.get(1);
-                List<Integer> triggeredPads2 = result.triggeredPads.get(2);
-                List<Integer> triggeredPads3 = result.triggeredPads.get(3);
-                if (!triggeredPads0.isEmpty()) logger.info("MPR0触发电极: {}", triggeredPads0); // 输出 [0]
-                if (!triggeredPads1.isEmpty()) logger.info("MPR1触发电极: {}", triggeredPads1); // 输出 [0]
-                if (!triggeredPads2.isEmpty()) logger.info("MPR2触发电极: {}", triggeredPads2); // 输出 [0]
-                if (!triggeredPads3.isEmpty()) logger.info("MPR3触发电极: {}", triggeredPads3); // 输出 [0]
-            } else if (data[0] == '(') {
-                List<String> activeContacts = MaimaiTouchDataParser.parseMprContacts(MaimaiTouchDataParser.parseTouchBits(data));
-                if (!activeContacts.isEmpty()) {
-                    logger.info("Active Contacts: {}", activeContacts);
-                }
-            }
-        });
+        Bootstrap bootstrap = new Bootstrap();
+        bootstrap.group(group)
+                .channelFactory(new SerialPortChannelFactory(serialPort))
+                .handler(new ChannelInitializer<SerialPortChannel>() {
+                    @Override
+                    protected void initChannel(SerialPortChannel ch) {
+                        ch.pipeline().addLast(new ChannelInboundHandlerAdapter() {
+                            private static int packetNum = 0;
+                            @Override
+                            public void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception {
+                                if (packetNum++ == MINIMUM_LOG_PACKET_AMOUNT){
+                                    packetNum = 0;
+                                    logger.info("{} packets received", MINIMUM_LOG_PACKET_AMOUNT);
+                                }
+                                super.channelRead(ctx, msg);
+                            }
+                        }).addLast(new SimpleChannelInboundHandler<ByteBuf>() {
+                            @Override
+                            protected void channelRead0(ChannelHandlerContext ctx, ByteBuf data) {
+                                List<String> activeContacts = MaimaiTouchDataParser.parseMprContacts(MaimaiTouchDataParser.parseTouchBits(data));
+                                if (!activeContacts.isEmpty()) {
+                                    logger.info("Active Contacts: {}", activeContacts);
+                                }
+                            }
+                        });
+                    }
+                });
 
-        serialPortTransfer.addReceiver(new Consumer<>() {
-
-            private static int packetNum = 0;
-
-            @Override
-            public void accept(byte[] data) {
-                if (packetNum++ == MINIMUM_LOG_PACKET_AMOUNT){
-                    packetNum = 0;
-                    logger.info("{} packets received", MINIMUM_LOG_PACKET_AMOUNT);
-                }
-            }
-        });
+        channel = bootstrap.connect(new SocketAddress(){}).sync().channel();
+        channel.writeAndFlush(Unpooled.copiedBuffer("{00A0}".getBytes()));
 
         ShutdownManager.addToShutdownList(() -> logger.info("Shutting down..."));
         ShutdownManager.addToShutdownList(serialPort::closePort);
@@ -123,12 +130,12 @@ public class MaimaiTouchController {
         return serialPort;
     }
 
-    public static Transfer<byte[]> getSerialPortTransfer() {
-        return serialPortTransfer;
-    }
-
     public static CommandService getCommandService() {
         return commandService;
+    }
+
+    public static Channel getChannel() {
+        return channel;
     }
 
 }

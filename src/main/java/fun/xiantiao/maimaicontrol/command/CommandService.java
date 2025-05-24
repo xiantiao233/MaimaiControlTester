@@ -3,6 +3,8 @@ package fun.xiantiao.maimaicontrol.command;
 import fun.xiantiao.maimaicontrol.MaimaiTouchController;
 import fun.xiantiao.maimaicontrol.logger.UniversalLogger;
 import fun.xiantiao.maimaicontrol.shutdown.ShutdownManager;
+import fun.xiantiao.maimaicontrol.utils.ByteBufHexDump;
+import io.netty.buffer.Unpooled;
 import net.minecrell.terminalconsole.SimpleTerminalConsole;
 import org.apache.commons.codec.DecoderException;
 import org.apache.commons.codec.binary.Hex;
@@ -45,7 +47,7 @@ public class CommandService extends SimpleTerminalConsole {
 
         if (command.toLowerCase(Locale.ROOT).startsWith("send string ")) {
             String dataString = command.substring(12);
-            MaimaiTouchController.getSerialPortTransfer().send(dataString.getBytes(StandardCharsets.UTF_8));
+            MaimaiTouchController.getChannel().writeAndFlush(Unpooled.wrappedBuffer(dataString.getBytes(StandardCharsets.UTF_8)));
             logger.warn("发送字符串: " + dataString);
             return;
         }
@@ -53,7 +55,7 @@ public class CommandService extends SimpleTerminalConsole {
         if (command.toLowerCase(Locale.ROOT).startsWith("send hex ")) {
             String dataString = command.substring(9);
             try {
-                MaimaiTouchController.getSerialPortTransfer().send(Hex.decodeHex(dataString));
+                MaimaiTouchController.getChannel().writeAndFlush(ByteBufHexDump.hexToByteBuf(dataString));
                 logger.warn("发送数据: " + dataString);
             } catch (DecoderException e) {
                 logger.warn("发送失败: " + dataString);
@@ -66,7 +68,7 @@ public class CommandService extends SimpleTerminalConsole {
         // A - 启动扫描触摸
         // O - 开启或者关闭发送mpr源数据
         String data = "{00%s0}".formatted(command);
-        MaimaiTouchController.getSerialPortTransfer().send(data.getBytes(StandardCharsets.UTF_8));
+        MaimaiTouchController.getChannel().writeAndFlush(Unpooled.copiedBuffer(data.getBytes(StandardCharsets.UTF_8)));
         logger.info("Send: " + data);
     }
 
