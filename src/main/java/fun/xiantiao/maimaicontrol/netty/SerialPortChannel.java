@@ -88,7 +88,9 @@ public class SerialPortChannel extends AbstractChannel {
     }
 
     private void close0() {
-        serialPort.closePort();
+        if (serialPort.isOpen()) {
+            serialPort.closePort();
+        }
         pipeline().fireChannelInactive();
     }
 
@@ -155,7 +157,7 @@ public class SerialPortChannel extends AbstractChannel {
             } catch (Exception e) {
                 pipeline().fireExceptionCaught(e);
             } finally {
-                pipeline().fireChannelInactive();
+                unsafe().close(unsafe().voidPromise());
             }
         }
 

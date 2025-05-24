@@ -7,7 +7,6 @@ import fun.xiantiao.maimaicontrol.utils.ByteBufHexDump;
 import io.netty.buffer.Unpooled;
 import net.minecrell.terminalconsole.SimpleTerminalConsole;
 import org.apache.commons.codec.DecoderException;
-import org.apache.commons.codec.binary.Hex;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Locale;

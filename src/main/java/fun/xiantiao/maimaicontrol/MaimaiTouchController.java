@@ -5,6 +5,7 @@ import fun.xiantiao.maimaicontrol.command.CommandService;
 import fun.xiantiao.maimaicontrol.logger.Log4j2LoggerAdapter;
 import fun.xiantiao.maimaicontrol.netty.SerialPortChannel;
 import fun.xiantiao.maimaicontrol.netty.SerialPortChannelFactory;
+import fun.xiantiao.maimaicontrol.netty.SerialPortChannelUtil;
 import fun.xiantiao.maimaicontrol.parser.MaimaiTouchDataParser;
 import fun.xiantiao.maimaicontrol.shutdown.ShutdownManager;
 import fun.xiantiao.maimaicontrol.utils.PropertyUtil;
@@ -47,37 +48,27 @@ public class MaimaiTouchController {
 
         logger.info("Serial port connected.");
 
-        EventLoopGroup group = new DefaultEventLoopGroup();
+        channel = SerialPortChannelUtil.toChannel(serialPort);
 
-        Bootstrap bootstrap = new Bootstrap();
-        bootstrap.group(group)
-                .channelFactory(new SerialPortChannelFactory(serialPort))
-                .handler(new ChannelInitializer<SerialPortChannel>() {
-                    @Override
-                    protected void initChannel(SerialPortChannel ch) {
-                        ch.pipeline().addLast(new ChannelInboundHandlerAdapter() {
-                            private static int packetNum = 0;
-                            @Override
-                            public void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception {
-                                if (packetNum++ == MINIMUM_LOG_PACKET_AMOUNT){
-                                    packetNum = 0;
-                                    logger.info("{} packets received", MINIMUM_LOG_PACKET_AMOUNT);
-                                }
-                                super.channelRead(ctx, msg);
-                            }
-                        }).addLast(new SimpleChannelInboundHandler<ByteBuf>() {
-                            @Override
-                            protected void channelRead0(ChannelHandlerContext ctx, ByteBuf data) {
-                                List<String> activeContacts = MaimaiTouchDataParser.parseMprContacts(MaimaiTouchDataParser.parseTouchBits(data));
-                                if (!activeContacts.isEmpty()) {
-                                    logger.info("Active Contacts: {}", activeContacts);
-                                }
-                            }
-                        });
-                    }
-                });
-
-        channel = bootstrap.connect(new SocketAddress(){}).sync().channel();
+        channel.pipeline().addLast(new ChannelInboundHandlerAdapter() {
+            private static int packetNum = 0;
+            @Override
+            public void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception {
+                if (packetNum++ == MINIMUM_LOG_PACKET_AMOUNT){
+                    packetNum = 0;
+                    logger.info("{} packets received", MINIMUM_LOG_PACKET_AMOUNT);
+                }
+                super.channelRead(ctx, msg);
+            }
+        }).addLast(new SimpleChannelInboundHandler<ByteBuf>() {
+            @Override
+            protected void channelRead0(ChannelHandlerContext ctx, ByteBuf data) {
+                List<String> activeContacts = MaimaiTouchDataParser.parseMprContacts(MaimaiTouchDataParser.parseTouchBits(data));
+                if (!activeContacts.isEmpty()) {
+                    logger.info("Active Contacts: {}", activeContacts);
+                }
+            }
+        });
         channel.writeAndFlush(Unpooled.copiedBuffer("{00A0}".getBytes()));
 
         ShutdownManager.addToShutdownList(() -> logger.info("Shutting down..."));

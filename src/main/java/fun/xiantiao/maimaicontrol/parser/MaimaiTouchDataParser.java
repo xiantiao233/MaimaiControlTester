@@ -2,7 +2,6 @@ package fun.xiantiao.maimaicontrol.parser;
 
 import fun.xiantiao.maimaicontrol.utils.ByteBufHexDump;
 import io.netty.buffer.ByteBuf;
-import org.apache.commons.codec.binary.Hex;
 
 import java.util.ArrayList;
 import java.util.List;
