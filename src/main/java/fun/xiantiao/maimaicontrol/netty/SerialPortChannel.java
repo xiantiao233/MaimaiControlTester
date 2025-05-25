@@ -133,7 +133,11 @@ public class SerialPortChannel extends AbstractChannel {
     private class SerialPortUnsafe extends AbstractUnsafe {
         @Override
         public void connect(SocketAddress remoteAddress, SocketAddress localAddress, ChannelPromise promise) {
-            promise.setFailure(new UnsupportedOperationException("connect not supported"));
+            if (!isOpen()) {
+                promise.setFailure(new IllegalStateException("Serial port is not opened"));
+            }
+
+            promise.setSuccess();
         }
     }
 

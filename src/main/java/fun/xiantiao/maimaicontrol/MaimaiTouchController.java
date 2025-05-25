@@ -3,26 +3,19 @@ package fun.xiantiao.maimaicontrol;
 import com.fazecast.jSerialComm.SerialPort;
 import fun.xiantiao.maimaicontrol.command.CommandService;
 import fun.xiantiao.maimaicontrol.logger.Log4j2LoggerAdapter;
-import fun.xiantiao.maimaicontrol.netty.SerialPortChannel;
-import fun.xiantiao.maimaicontrol.netty.SerialPortChannelFactory;
-import fun.xiantiao.maimaicontrol.netty.SerialPortChannelUtil;
+import fun.xiantiao.maimaicontrol.netty.SerialPortChannelWrapper;
 import fun.xiantiao.maimaicontrol.parser.MaimaiTouchDataParser;
 import fun.xiantiao.maimaicontrol.shutdown.ShutdownManager;
 import fun.xiantiao.maimaicontrol.utils.PropertyUtil;
-import io.netty.bootstrap.Bootstrap;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
-import io.netty.channel.ChannelInitializer;
-import io.netty.channel.DefaultEventLoopGroup;
-import io.netty.channel.EventLoopGroup;
 import io.netty.channel.SimpleChannelInboundHandler;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import java.net.SocketAddress;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
@@ -48,7 +41,7 @@ public class MaimaiTouchController {
 
         logger.info("Serial port connected.");
 
-        channel = SerialPortChannelUtil.toChannel(serialPort);
+        channel = SerialPortChannelWrapper.wrapChannel(serialPort);
 
         channel.pipeline().addLast(new ChannelInboundHandlerAdapter() {
             private static int packetNum = 0;

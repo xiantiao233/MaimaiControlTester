@@ -2,20 +2,29 @@ package fun.xiantiao.maimaicontrol.netty;
 
 import com.fazecast.jSerialComm.SerialPort;
 import io.netty.bootstrap.Bootstrap;
-import io.netty.channel.ChannelFuture;
-import io.netty.channel.DefaultEventLoopGroup;
-import io.netty.channel.EventLoopGroup;
+import io.netty.channel.*;
 
 import java.net.SocketAddress;
 import java.util.concurrent.CompletableFuture;
 
-public class SerialPortChannelUtil {
+public class SerialPortChannelWrapper {
 
-    public static SerialPortChannel toChannel(SerialPort serialPort) {
+    public static SerialPortChannel wrapChannel(SerialPort serialPort) {
+        return wrapChannel(serialPort, new ChannelHandler[0]);
+    }
+
+    public static SerialPortChannel wrapChannel(SerialPort serialPort, ChannelHandler... handlers) {
         EventLoopGroup group = new DefaultEventLoopGroup();
 
-        Bootstrap bootstrap = new Bootstrap();
-        bootstrap.group(group).channelFactory(new SerialPortChannelFactory(serialPort));
+        Bootstrap bootstrap = new Bootstrap()
+                .group(group)
+                .channelFactory(new SerialPortChannelFactory(serialPort)).handler(new ChannelInitializer<SerialPortChannel>() {
+                    @Override
+                    protected void initChannel(SerialPortChannel channel) {
+                        if (handlers.length > 0) channel.pipeline().addLast(handlers);
+                    }
+
+                });
 
         ChannelFuture channelFuture = bootstrap.connect(new SocketAddress() {});
         try {
