@@ -62,7 +62,7 @@ public class CommandService extends SimpleTerminalConsole {
             return;
         }
 
-        // E - 清楚触摸缓存
+        // E - 清除触摸缓存
         // L - 暂停扫描触摸
         // A - 启动扫描触摸
         // O - 开启或者关闭发送mpr源数据
